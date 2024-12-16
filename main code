@@ -1,0 +1,44 @@
+from flask import Flask, render_template, request
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import unquote
+
+app = Flask(__name__)
+
+def search_duckduckgo_clean(query, num_results=5):
+    """Search DuckDuckGo and fetch top result links with clean titles."""
+    url = f"https://html.duckduckgo.com/html/?q={query}"
+    try:
+        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        response.raise_for_status()
+        
+        # Parse the HTML response
+        soup = BeautifulSoup(response.text, "html.parser")
+        
+        results = []
+        for result in soup.find_all('a', class_='result__a', href=True)[:num_results]:
+            title = result.get_text()  # Extract clean title
+            link = result['href']      # Extract URL
+
+            # Clean up DuckDuckGo redirect links
+            if link.startswith("//duckduckgo.com/l/?uddg="):
+                link = unquote(link.split("uddg=")[1].split("&rut=")[0])
+            
+            results.append((title, link))
+        
+        return results
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
+        return []
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+    links = []
+    if request.method == "POST":
+        query = request.form.get("query")
+        if query:
+            links = search_duckduckgo_clean(query)
+    return render_template("SEARCH ENGINE TRY 2b.html", links=links)
+
+if __name__ == "__main__":
+    app.run(debug=True)
